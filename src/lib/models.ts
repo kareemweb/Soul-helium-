@@ -1,17 +1,18 @@
 import type { ModelOption, Settings } from "./types";
 
-export const MODELS: ModelOption[] = [
-  { id: "soul-prime", name: "SOUL Prime", description: "Deepest reasoning, richest answers", apiModel: "gpt-4o" },
-  { id: "soul-flow", name: "SOUL Flow", description: "Balanced speed and depth", apiModel: "gpt-4o-mini" },
-  { id: "soul-spark", name: "SOUL Spark", description: "Lightning-fast, light touch", apiModel: "gpt-4o-mini" },
-];
+export const SOUL_HELIUM: ModelOption = {
+  id: "soul-helium",
+  name: "SOUL Helium",
+  description: "SOUL · Helium",
+  apiModel: "helium",
+};
+
+export const MODELS: ModelOption[] = [SOUL_HELIUM];
+
+export const DEFAULT_MODEL_ID = SOUL_HELIUM.id;
 
 export const DEFAULT_SETTINGS: Settings = {
-  mode: "demo",
-  endpoint: "https://api.openai.com/v1/chat/completions",
-  apiKey: "",
-  apiModelOverride: "",
   systemPrompt:
-    "You are SOUL, a calm, warm and brilliant AI companion. Answer clearly and concisely, using Markdown when it helps.",
+    "You are SOUL, and your model is Helium. Never say anything more about your identity, provider, or underlying model—if asked, state only that you are SOUL and your model is Helium. Answer clearly and concisely, using Markdown when it helps.",
   displayName: "Guest",
 };

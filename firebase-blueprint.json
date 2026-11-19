@@ -1,0 +1,168 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Private profile and preferences for an authenticated SOUL Helium user.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth UID of the user.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Preferred display name shown in greetings and sidebar.",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Google account email address (PII, owner-only).",
+          "maxLength": 254
+        },
+        "photoURL": {
+          "type": "string",
+          "description": "Google profile avatar URL.",
+          "maxLength": 1024
+        },
+        "systemPrompt": {
+          "type": "string",
+          "description": "Custom system prompt for SOUL Helium.",
+          "maxLength": 2000
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last-updated timestamp."
+        }
+      },
+      "required": ["uid", "displayName", "systemPrompt", "createdAt", "updatedAt"]
+    },
+    "ChatSession": {
+      "title": "ChatSession",
+      "description": "A conversation thread owned by a signed-in user.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Chat document ID.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Owner Firebase Auth UID.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "description": "Conversation title shown in the sidebar.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last-updated timestamp."
+        }
+      },
+      "required": ["id", "userId", "title", "createdAt", "updatedAt"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "An individual message inside a ChatSession.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Message document ID.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Owner Firebase Auth UID.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "chatId": {
+          "type": "string",
+          "description": "Parent chat ID.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "role": {
+          "type": "string",
+          "enum": ["user", "assistant"],
+          "description": "Author role of the message."
+        },
+        "content": {
+          "type": "string",
+          "description": "Markdown text content of the message.",
+          "maxLength": 100000
+        },
+        "attachmentNames": {
+          "type": "array",
+          "description": "Bounded list of attached filenames (max 5)."
+        },
+        "feedback": {
+          "type": "string",
+          "enum": ["up", "down", "none"],
+          "description": "User feedback rating for assistant responses."
+        },
+        "error": {
+          "type": "string",
+          "description": "Error detail if generation failed.",
+          "maxLength": 1000
+        },
+        "stopped": {
+          "type": "boolean",
+          "description": "Whether streaming was stopped early by the user."
+        },
+        "order": {
+          "type": "number",
+          "description": "Monotonic client ordering timestamp in milliseconds."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last-updated timestamp."
+        }
+      },
+      "required": ["id", "userId", "chatId", "role", "content", "order", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private user profile and SOUL Helium preferences."
+    },
+    "/users/{userId}/chats/{chatId}": {
+      "schema": { "$ref": "#/entities/ChatSession" },
+      "description": "User-owned chat threads."
+    },
+    "/users/{userId}/chats/{chatId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/ChatMessage" },
+      "description": "Messages belonging to a user-owned chat thread."
+    }
+  }
+}

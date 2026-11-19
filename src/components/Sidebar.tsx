@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, MessageSquare, Pencil, Plus, Search, Settings as SettingsIcon, Trash2, X } from "lucide-react";
+import { Check, LogOut, MessageSquare, Pencil, Plus, Search, Settings as SettingsIcon, Trash2, X } from "lucide-react";
+import type { User } from "firebase/auth";
 import type { Chat, Settings } from "../lib/types";
+import { groupChatsByDate } from "../lib/chatUtils";
 import { SoulMark } from "./Logo";
+import GoogleIcon from "./GoogleIcon";
 import { cn } from "../utils/cn";
 
 interface Props {
@@ -12,6 +15,10 @@ interface Props {
   chats: Chat[];
   activeId: string | null;
   settings: Settings;
+  user: User | null;
+  signingIn: boolean;
+  onSignIn: () => void;
+  onSignOut: () => void;
   onClose: () => void;
   onSelect: (id: string) => void;
   onNew: () => void;
@@ -21,27 +28,6 @@ interface Props {
 }
 
 const WIDTH = 296;
-
-function groupChats(chats: Chat[]) {
-  const now = new Date();
-  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const day = 86_400_000;
-  const groups: { label: string; items: Chat[] }[] = [
-    { label: "Today", items: [] },
-    { label: "Yesterday", items: [] },
-    { label: "Previous 7 days", items: [] },
-    { label: "Earlier", items: [] },
-  ];
-  [...chats]
-    .sort((a, b) => b.updatedAt - a.updatedAt)
-    .forEach((c) => {
-      if (c.updatedAt >= startToday) groups[0].items.push(c);
-      else if (c.updatedAt >= startToday - day) groups[1].items.push(c);
-      else if (c.updatedAt >= startToday - 7 * day) groups[2].items.push(c);
-      else groups[3].items.push(c);
-    });
-  return groups.filter((g) => g.items.length);
-}
 
 function ChatRow({
   chat,
@@ -94,7 +80,7 @@ function ChatRow({
           <input
             ref={inputRef}
             value={draft}
-            maxLength={80}
+            maxLength={120}
             aria-label="Rename chat"
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
@@ -131,7 +117,9 @@ function ChatRow({
           <div
             className={cn(
               "flex shrink-0 items-center gap-0.5 pr-1.5 transition-opacity duration-200",
-              confirm ? "opacity-100" : "opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100 [@media(hover:none)]:opacity-100",
+              confirm
+                ? "opacity-100"
+                : "opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100 [@media(hover:none)]:opacity-100",
             )}
           >
             {confirm ? (
@@ -169,14 +157,31 @@ function ChatRow({
 }
 
 function SidebarContent(props: Props & { showClose: boolean }) {
-  const { chats, activeId, loading, settings, onSelect, onNew, onRename, onDelete, onOpenSettings, onClose, showClose } = props;
+  const {
+    chats,
+    activeId,
+    loading,
+    settings,
+    user,
+    signingIn,
+    onSignIn,
+    onSignOut,
+    onSelect,
+    onNew,
+    onRename,
+    onDelete,
+    onOpenSettings,
+    onClose,
+    showClose,
+  } = props;
   const [query, setQuery] = useState("");
   const filtered = useMemo(
     () => chats.filter((c) => c.title.toLowerCase().includes(query.trim().toLowerCase())),
     [chats, query],
   );
-  const groups = useMemo(() => groupChats(filtered), [filtered]);
-  const initials = (settings.displayName || "G").slice(0, 1).toUpperCase();
+  const groups = useMemo(() => groupChatsByDate(filtered), [filtered]);
+  const displayName = user?.displayName || settings.displayName || "Guest";
+  const initials = displayName.slice(0, 1).toUpperCase();
 
   return (
     <div className="flex h-full flex-col p-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
@@ -255,25 +260,57 @@ function SidebarContent(props: Props & { showClose: boolean }) {
         )}
       </nav>
 
-      <div className="mt-2 flex items-center gap-3 rounded-2xl border border-soul/20 bg-white/[0.03] p-2.5">
-        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-soul to-nebula font-display text-sm font-semibold text-white shadow-[0_0_18px_-4px_rgba(138,92,246,0.9)]">
-          {initials}
+      <div className="mt-2 space-y-2">
+        {!user && (
+          <button
+            onClick={onSignIn}
+            disabled={signingIn}
+            className="hover-lift flex h-10 w-full items-center justify-center gap-2 rounded-2xl border border-soul/25 bg-white/[0.06] px-3 text-xs font-medium text-white transition-colors hover:border-lilac/40 hover:bg-white/10 disabled:opacity-60"
+          >
+            <GoogleIcon size={15} />
+            <span>{signingIn ? "Signing in…" : "Sign in with Google"}</span>
+          </button>
+        )}
+
+        <div className="flex items-center gap-2.5 rounded-2xl border border-soul/20 bg-white/[0.03] p-2.5">
+          {user?.photoURL ? (
+            <img
+              src={user.photoURL}
+              alt={displayName}
+              referrerPolicy="no-referrer"
+              className="h-10 w-10 shrink-0 rounded-2xl object-cover shadow-[0_0_18px_-4px_rgba(138,92,246,0.7)]"
+            />
+          ) : (
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-soul to-nebula font-display text-sm font-semibold text-white shadow-[0_0_18px_-4px_rgba(138,92,246,0.9)]">
+              {initials}
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-white">{displayName}</p>
+            <p className="flex items-center gap-1.5 text-xs text-white/40">
+              <span className={cn("h-1.5 w-1.5 rounded-full", user ? "bg-emerald-400" : "bg-lilac")} />
+              <span className="truncate">{user ? user.email || "Synced with Google" : "SOUL Helium"}</span>
+            </p>
+          </div>
+          {user && (
+            <button
+              onClick={onSignOut}
+              aria-label="Sign out"
+              title="Sign out"
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-white/50 transition-colors hover:bg-white/10 hover:text-white"
+            >
+              <LogOut size={16} />
+            </button>
+          )}
+          <button
+            onClick={onOpenSettings}
+            aria-label="Open settings"
+            title="Settings"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-white/55 transition-all duration-300 hover:rotate-45 hover:bg-soul/20 hover:text-white"
+          >
+            <SettingsIcon size={18} />
+          </button>
         </div>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-white">{settings.displayName || "Guest"}</p>
-          <p className="flex items-center gap-1.5 text-xs text-white/40">
-            <span className={cn("h-1.5 w-1.5 rounded-full", settings.mode === "api" ? "bg-emerald-400" : "bg-lilac")} />
-            {settings.mode === "api" ? "Connected to API" : "Demo mode"}
-          </p>
-        </div>
-        <button
-          onClick={onOpenSettings}
-          aria-label="Open settings"
-          title="Settings"
-          className="grid h-10 w-10 place-items-center rounded-xl text-white/55 transition-all duration-300 hover:rotate-45 hover:bg-soul/20 hover:text-white"
-        >
-          <SettingsIcon size={19} />
-        </button>
       </div>
     </div>
   );

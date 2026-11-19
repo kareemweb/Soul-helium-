@@ -31,16 +31,11 @@ export interface ModelOption {
   id: string;
   name: string;
   description: string;
-  /** model id sent to the API when connected to a real LLM */
+  /** Model id used server-side */
   apiModel: string;
 }
 
 export interface Settings {
-  mode: "demo" | "api";
-  endpoint: string;
-  apiKey: string;
-  /** optional override for the model id sent to the API */
-  apiModelOverride: string;
   systemPrompt: string;
   displayName: string;
 }

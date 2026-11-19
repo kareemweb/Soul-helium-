@@ -10,7 +10,7 @@ export interface ComposerHandle {
 
 interface Props {
   generating: boolean;
-  onSend: (text: string, attachments: Attachment[]) => void;
+  onSend: (text: string, attachments: Attachment[]) => boolean | void;
   onStop: () => void;
   handleRef?: Ref<ComposerHandle>;
 }
@@ -90,7 +90,8 @@ export default function Composer({ generating, onSend, onStop, handleRef }: Prop
 
   const submit = useCallback(() => {
     if (!canSend) return;
-    onSend(value.trim(), files);
+    const accepted = onSend(value.trim(), files);
+    if (accepted === false) return;
     setValue("");
     setFiles([]);
     recRef.current?.stop();

@@ -124,9 +124,19 @@ export default function MessageItem({ message, index, isLast, generating, onRege
             ) : message.error ? (
               <div className="flex items-start gap-3 text-sm text-rose-200/90">
                 <AlertTriangle size={18} className="mt-0.5 shrink-0 text-rose-300" />
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="font-medium">SOUL couldn't finish that thought.</p>
                   <p className="mt-1 text-rose-200/60 break-words">{message.error}</p>
+                  {isLast && (
+                    <button
+                      type="button"
+                      onClick={onRegenerate}
+                      className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-rose-300/25 bg-rose-500/15 px-3 py-1.5 text-xs font-medium text-rose-100 transition-colors hover:bg-rose-500/25"
+                    >
+                      <RefreshCw size={13} />
+                      Try again
+                    </button>
+                  )}
                 </div>
               </div>
             ) : (

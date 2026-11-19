@@ -1,13 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Eye, EyeOff, Trash2, X } from "lucide-react";
+import { Download, LogOut, Sparkles, Trash2, X } from "lucide-react";
+import type { User } from "firebase/auth";
 import type { Settings } from "../lib/types";
-import { DEFAULT_SETTINGS } from "../lib/models";
+import { LIMITS, sanitizeDisplayName, sanitizeSystemPrompt } from "../lib/chatUtils";
+import { DEFAULT_SETTINGS, SOUL_HELIUM } from "../lib/models";
+import { usePWAInstall } from "../hooks/usePWAInstall";
+import GoogleIcon from "./GoogleIcon";
 import { cn } from "../utils/cn";
 
 interface Props {
   settings: Settings;
   chatCount: number;
+  user: User | null;
+  signingIn: boolean;
+  onSignIn: () => void;
+  onSignOut: () => void;
   onSave: (s: Settings) => void;
   onClearAll: () => void;
   onClose: () => void;
@@ -24,10 +32,20 @@ function Label({ children, htmlFor }: { children: React.ReactNode; htmlFor: stri
   );
 }
 
-export default function SettingsModal({ settings, chatCount, onSave, onClearAll, onClose }: Props) {
+export default function SettingsModal({
+  settings,
+  chatCount,
+  user,
+  signingIn,
+  onSignIn,
+  onSignOut,
+  onSave,
+  onClearAll,
+  onClose,
+}: Props) {
   const [draft, setDraft] = useState<Settings>(settings);
-  const [showKey, setShowKey] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
   const closeRef = useRef<HTMLButtonElement>(null);
   const set = <K extends keyof Settings>(k: K, v: Settings[K]) => setDraft((d) => ({ ...d, [k]: v }));
 
@@ -39,7 +57,10 @@ export default function SettingsModal({ settings, chatCount, onSave, onClearAll,
   }, [onClose]);
 
   const save = () => {
-    onSave({ ...draft, displayName: draft.displayName.trim() || "Guest" });
+    onSave({
+      displayName: sanitizeDisplayName(draft.displayName),
+      systemPrompt: sanitizeSystemPrompt(draft.systemPrompt, DEFAULT_SETTINGS.systemPrompt),
+    });
     onClose();
   };
 
@@ -79,82 +100,117 @@ export default function SettingsModal({ settings, chatCount, onSave, onClearAll,
 
         <div className="space-y-6 overflow-y-auto px-6 py-5">
           <div>
-            <Label htmlFor="name">Your name</Label>
-            <input id="name" className={field} value={draft.displayName} maxLength={30} onChange={(e) => set("displayName", e.target.value)} />
+            <p className="mb-1.5 font-display text-[10px] uppercase tracking-[0.22em] text-lilac/70">Google Account</p>
+            {user ? (
+              <div className="flex items-center justify-between gap-3 rounded-2xl border border-soul/20 bg-white/[0.04] px-4 py-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  {user.photoURL ? (
+                    <img
+                      src={user.photoURL}
+                      alt={user.displayName || "User avatar"}
+                      referrerPolicy="no-referrer"
+                      className="h-10 w-10 shrink-0 rounded-xl object-cover"
+                    />
+                  ) : (
+                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-soul to-nebula font-display text-sm font-semibold text-white">
+                      {(user.displayName || user.email || "U").slice(0, 1).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-white">{user.displayName || "Google User"}</p>
+                    <p className="truncate text-xs text-white/50">{user.email}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={onSignOut}
+                  className="flex shrink-0 items-center gap-1.5 rounded-xl border border-white/15 px-3 py-2 text-xs text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+                >
+                  <LogOut size={14} />
+                  Sign out
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={onSignIn}
+                disabled={signingIn}
+                className="hover-lift flex w-full items-center justify-center gap-2.5 rounded-2xl border border-soul/25 bg-white/[0.05] px-4 py-3 text-sm font-medium text-white transition-colors hover:border-lilac/45 hover:bg-white/10 disabled:opacity-60"
+              >
+                <GoogleIcon size={17} />
+                {signingIn ? "Signing in with Google…" : "Sign in with Google to sync your chats"}
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-soul/20 bg-soul/[0.08] px-4 py-3">
+            <div className="flex items-center gap-3">
+              <Sparkles size={18} className="shrink-0 text-lilac" />
+              <div>
+                <p className="font-display text-xs uppercase tracking-[0.18em] text-white">{SOUL_HELIUM.name}</p>
+                <p className="text-xs text-white/50">{SOUL_HELIUM.description}</p>
+              </div>
+            </div>
+            <span className="rounded-xl border border-lilac/30 bg-soul/20 px-2.5 py-1 font-display text-[10px] uppercase tracking-[0.16em] text-lilac">
+              Active
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-soul/20 bg-white/[0.03] px-4 py-3">
+            <div className="flex items-center gap-3">
+              <img src="/favicon.svg" alt="Soul app icon" className="h-9 w-9 shrink-0 rounded-xl" />
+              <div>
+                <p className="font-display text-xs uppercase tracking-[0.18em] text-white">Soul App</p>
+                <p className="text-xs text-white/50">
+                  {isInstalled
+                    ? "Running as an installed standalone app"
+                    : isIOS
+                      ? "Tap Share → Add to Home Screen in Safari"
+                      : isInstallable
+                        ? "Install Soul on your device for quick standalone access"
+                        : "Use your browser’s Install / Add to Home Screen menu"}
+                </p>
+              </div>
+            </div>
+            {!isInstalled && isInstallable && (
+              <button
+                type="button"
+                onClick={() => void install()}
+                className="hover-lift flex shrink-0 items-center gap-1.5 rounded-xl bg-gradient-to-br from-soul to-nebula px-3 py-2 text-xs font-medium text-white"
+              >
+                <Download size={14} />
+                Install
+              </button>
+            )}
           </div>
 
           <div>
-            <p className="mb-1.5 font-display text-[10px] uppercase tracking-[0.22em] text-lilac/70">Intelligence source</p>
-            <div role="radiogroup" aria-label="Intelligence source" className="grid grid-cols-2 gap-1.5 rounded-2xl border border-soul/20 bg-black/20 p-1.5">
-              {(
-                [
-                  ["demo", "Demo mode", "Simulated streaming"],
-                  ["api", "Live API", "OpenAI-compatible"],
-                ] as const
-              ).map(([id, title, sub]) => (
-                <button
-                  key={id}
-                  role="radio"
-                  aria-checked={draft.mode === id}
-                  onClick={() => set("mode", id)}
-                  className={cn(
-                    "rounded-xl px-3 py-2.5 text-left transition-all duration-300",
-                    draft.mode === id
-                      ? "bg-gradient-to-br from-soul/60 to-nebula/40 text-white shadow-[0_6px_22px_-8px_rgba(138,92,246,0.9)]"
-                      : "text-white/55 hover:bg-white/5 hover:text-white",
-                  )}
-                >
-                  <span className="block text-sm font-medium">{title}</span>
-                  <span className="block text-xs opacity-70">{sub}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className={cn("space-y-4 transition-opacity duration-300", draft.mode === "demo" && "pointer-events-none opacity-40")} aria-disabled={draft.mode === "demo"}>
-            <div>
-              <Label htmlFor="endpoint">Endpoint URL</Label>
-              <input id="endpoint" className={field} value={draft.endpoint} placeholder={DEFAULT_SETTINGS.endpoint} onChange={(e) => set("endpoint", e.target.value)} disabled={draft.mode === "demo"} />
-            </div>
-            <div>
-              <Label htmlFor="key">API key</Label>
-              <div className="relative">
-                <input
-                  id="key"
-                  className={cn(field, "pr-12")}
-                  type={showKey ? "text" : "password"}
-                  value={draft.apiKey}
-                  placeholder="sk-…"
-                  autoComplete="off"
-                  onChange={(e) => set("apiKey", e.target.value)}
-                  disabled={draft.mode === "demo"}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowKey((s) => !s)}
-                  aria-label={showKey ? "Hide API key" : "Show API key"}
-                  className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-white/50 hover:bg-white/10 hover:text-white"
-                >
-                  {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
-              <p className="mt-1.5 text-xs text-white/35">Stored only in this browser's localStorage.</p>
-            </div>
-            <div>
-              <Label htmlFor="model">Model ID override (optional)</Label>
-              <input id="model" className={field} value={draft.apiModelOverride} placeholder="e.g. gpt-4o, llama-3.1-70b…" onChange={(e) => set("apiModelOverride", e.target.value)} disabled={draft.mode === "demo"} />
-            </div>
+            <Label htmlFor="name">Your name</Label>
+            <input
+              id="name"
+              className={field}
+              value={draft.displayName}
+              maxLength={LIMITS.DISPLAY_NAME_MAX}
+              onChange={(e) => set("displayName", e.target.value)}
+            />
           </div>
 
           <div>
             <Label htmlFor="sys">System prompt</Label>
-            <textarea id="sys" rows={3} className={cn(field, "resize-none")} value={draft.systemPrompt} onChange={(e) => set("systemPrompt", e.target.value)} />
+            <textarea
+              id="sys"
+              rows={3}
+              maxLength={LIMITS.SYSTEM_PROMPT_MAX}
+              className={cn(field, "resize-none")}
+              value={draft.systemPrompt}
+              onChange={(e) => set("systemPrompt", e.target.value)}
+            />
           </div>
 
           <div className="flex items-center justify-between gap-3 rounded-2xl border border-rose-400/15 bg-rose-500/[0.06] px-4 py-3">
             <div>
               <p className="text-sm text-white/85">Clear all conversations</p>
-              <p className="text-xs text-white/40">{chatCount} saved chat{chatCount === 1 ? "" : "s"}</p>
+              <p className="text-xs text-white/40">
+                {chatCount} saved chat{chatCount === 1 ? "" : "s"}
+              </p>
             </div>
             <button
               onClick={() => {
